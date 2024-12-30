@@ -6,7 +6,7 @@ The repository contains everything required to compile and build the examples on
 Use the provided CMakeLists.txt with [CMake](https://cmake.org) to generate a build configuration for your favorite IDE or compiler, e.g.:
 
 ```
-cmake -G "Visual Studio 16 2019" -A x64
+cmake -G "Visual Studio 17 2022" -A x64
 ```
 
 ## <img src="./images/linuxlogo.png" alt="" height="32px"> Linux
