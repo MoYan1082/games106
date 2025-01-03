@@ -5,6 +5,8 @@ layout (location = 1) in vec3 inNormal;
 layout (location = 2) in vec2 inUV;
 layout (location = 3) in vec3 inColor;
 layout (location = 4) in vec4 inTangent;
+layout (location = 5) in vec4 inJointIndices;
+layout (location = 6) in vec4 inJointWeights;
 
 layout (set = 0, binding = 0) uniform UBOScene
 {
@@ -17,6 +19,8 @@ layout (set = 0, binding = 0) uniform UBOScene
 layout(push_constant) uniform PushConsts {
 	mat4 model;
 } primitive;
+
+
 
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
@@ -31,7 +35,15 @@ void main()
 	outNormal = inNormal;
 	outColor = inColor;
 	outUV = inUV;
-	gl_Position = uboScene.projection * uboScene.view * primitive.model * vec4(inPos.xyz, 1.0);
+	
+	// Calculate skinned matrix from weights and joint indices of the current vertex
+	//mat4 skinMat = 
+	//	inJointWeights.x * jointMatrices[int(inJointIndices.x)] +
+	//	inJointWeights.y * jointMatrices[int(inJointIndices.y)] +
+	//	inJointWeights.z * jointMatrices[int(inJointIndices.z)] +
+	//	inJointWeights.w * jointMatrices[int(inJointIndices.w)];
+	
+    gl_Position = uboScene.projection * uboScene.view * primitive.model * vec4(inPos.xyz, 1.0);
 	
     float sign = inTangent.w;
     vec3 normalWS = mat3(uboScene.view) * mat3(primitive.model) * inNormal;
