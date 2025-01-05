@@ -20,6 +20,7 @@ layout(push_constant) uniform PushConsts {
 	mat4 model;
 } primitive;
 
+// layout (set = 3, binding = 0) uniform mat4 matrixHierarchy;
 
 
 layout (location = 0) out vec3 outNormal;

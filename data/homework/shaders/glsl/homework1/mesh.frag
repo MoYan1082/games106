@@ -10,6 +10,7 @@ layout (set = 0, binding = 0) uniform UBOScene
 
 layout (set = 1, binding = 0) uniform sampler2D samplerColorMap;
 layout (set = 2, binding = 0) uniform sampler2D samplerNormalMap;
+//layout (set = 3, binding = 0) uniform mat4 matrixHierarchy;
 
 layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec3 inColor;
@@ -24,6 +25,7 @@ layout (location = 0) out vec4 outFragColor;
 void main() 
 {
 	vec4 color = texture(samplerColorMap, inUV) * vec4(inColor, 1.0);
+	// vec4 color = vec4(inColor, 1.0);
 	vec3 normalTS = texture(samplerNormalMap, inUV).xyz;
 
 	vec3 normalWS = inNormal;
