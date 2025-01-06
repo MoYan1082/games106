@@ -20,7 +20,12 @@ layout(push_constant) uniform PushConsts {
 	mat4 model;
 } primitive;
 
-// layout (set = 3, binding = 0) uniform mat4 matrixHierarchy;
+// layout(std430, set = 3, binding = 0) readonly buffer JointMatrices {
+// 	mat4 jointMatrices[];
+// };
+layout (std430, set = 3, binding = 0) readonly buffer MatricsHierarchy {
+	mat4 matrixHierarchy;
+};
 
 
 layout (location = 0) out vec3 outNormal;
@@ -45,6 +50,7 @@ void main()
 	//	inJointWeights.w * jointMatrices[int(inJointIndices.w)];
 	
     gl_Position = uboScene.projection * uboScene.view * primitive.model * vec4(inPos.xyz, 1.0);
+	// gl_Position = uboScene.projection * uboScene.view * matrixHierarchy * vec4(inPos.xyz, 1.0);
 	
     float sign = inTangent.w;
     vec3 normalWS = mat3(uboScene.view) * mat3(primitive.model) * inNormal;

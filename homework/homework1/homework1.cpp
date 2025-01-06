@@ -1087,7 +1087,7 @@ public:
 			const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.nodeMatrices, 1);
 			VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &node->descriptorSet));
 			VK_CHECK_RESULT(node->ssbo.invalidate());
-			VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(node->descriptorSet, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 0, &node->ssbo.descriptor);
+			VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(node->descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, &node->ssbo.descriptor);
 			vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
 		}
 	}
