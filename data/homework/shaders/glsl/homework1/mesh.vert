@@ -23,9 +23,9 @@ layout(push_constant) uniform PushConsts {
 // layout(std430, set = 3, binding = 0) readonly buffer JointMatrices {
 // 	mat4 jointMatrices[];
 // };
-layout (std430, set = 3, binding = 0) readonly buffer MatricsHierarchy {
-	mat4 matrixHierarchy;
-};
+// layout (std430, set = 3, binding = 0) readonly buffer MatricsHierarchy {
+// 	mat4 matrixHierarchy;
+// };
 
 
 layout (location = 0) out vec3 outNormal;
