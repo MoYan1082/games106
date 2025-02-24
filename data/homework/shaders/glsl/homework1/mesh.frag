@@ -10,7 +10,6 @@ layout (set = 0, binding = 0) uniform UBOScene
 
 layout (set = 1, binding = 0) uniform sampler2D samplerColorMap;
 layout (set = 2, binding = 0) uniform sampler2D samplerNormalMap;
-//layout (set = 3, binding = 0) uniform mat4 matrixHierarchy;
 
 layout (location = 0) in vec3 inNormal;
 layout (location = 1) in vec3 inColor;
