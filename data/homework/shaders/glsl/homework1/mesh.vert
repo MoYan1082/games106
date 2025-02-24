@@ -20,14 +20,6 @@ layout(push_constant) uniform PushConsts {
 	mat4 model;
 } primitive;
 
-// layout(std430, set = 3, binding = 0) readonly buffer JointMatrices {
-// 	mat4 jointMatrices[];
-// };
-// layout (std430, set = 3, binding = 0) readonly buffer MatricsHierarchy {
-// 	mat4 matrixHierarchy;
-// };
-
-
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
 layout (location = 2) out vec2 outUV;
@@ -42,16 +34,8 @@ void main()
 	outColor = inColor;
 	outUV = inUV;
 	
-	// Calculate skinned matrix from weights and joint indices of the current vertex
-	//mat4 skinMat = 
-	//	inJointWeights.x * jointMatrices[int(inJointIndices.x)] +
-	//	inJointWeights.y * jointMatrices[int(inJointIndices.y)] +
-	//	inJointWeights.z * jointMatrices[int(inJointIndices.z)] +
-	//	inJointWeights.w * jointMatrices[int(inJointIndices.w)];
-	
     gl_Position = uboScene.projection * uboScene.view * primitive.model * vec4(inPos.xyz, 1.0);
-	// gl_Position = uboScene.projection * uboScene.view * matrixHierarchy * vec4(inPos.xyz, 1.0);
-	
+
     float sign = inTangent.w;
     vec3 normalWS = mat3(uboScene.view) * mat3(primitive.model) * inNormal;
     vec3 tangentWS = mat3(uboScene.view) * mat3(primitive.model) * inTangent.xyz;

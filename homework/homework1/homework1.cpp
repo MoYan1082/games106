@@ -27,7 +27,7 @@
 
 #include "vulkanexamplebase.h"
 
-#define ENABLE_VALIDATION false
+#define ENABLE_VALIDATION true
 
 // Contains everything required to render a glTF model in Vulkan
 // This class is heavily simplified (compared to glTF's feature set) but retains the basic glTF structure
@@ -87,11 +87,8 @@ public:
 		glm::vec3           translation{};
 		glm::vec3           scale{ 1.0f };
 		glm::quat           rotation{};
-		int32_t             skin = -1;
 		glm::mat4			matrix;
 		glm::mat4			matrixHierarchy;
-		vks::Buffer         ssbo;
-		VkDescriptorSet     descriptorSet;
 		/*
 			 Get a node's local matrix from the current translation, rotation and scale values
 			 These are calculated from the current animation an need to be calculated dynamically
@@ -125,20 +122,6 @@ public:
 	// In this sample, we are only interested in the image
 	struct Texture {
 		int32_t imageIndex;
-	};
-
-	/*
-		Skin structure
-	*/
-
-	struct Skin
-	{
-		std::string            name;
-		Node* skeletonRoot = nullptr;
-		std::vector<glm::mat4> inverseBindMatrices;
-		std::vector<Node*>    joints;
-		vks::Buffer            ssbo;
-		VkDescriptorSet        descriptorSet;
 	};
 
 	/*
@@ -176,7 +159,6 @@ public:
 	std::vector<Texture> textures;
 	std::vector<Material> materials;
 	std::vector<Node*> nodes;
-	std::vector<Skin>      skins;
 	std::vector<Animation> animations;
 
 	uint32_t activeAnimation = 0;
@@ -196,10 +178,6 @@ public:
 			vkDestroyImage(vulkanDevice->logicalDevice, image.texture.image, nullptr);
 			vkDestroySampler(vulkanDevice->logicalDevice, image.texture.sampler, nullptr);
 			vkFreeMemory(vulkanDevice->logicalDevice, image.texture.deviceMemory, nullptr);
-		}
-		for (Skin skin : skins)
-		{
-			skin.ssbo.destroy();
 		}
 	}
 
@@ -400,7 +378,6 @@ public:
 		node->parent                = parent;
 		node->matrix                = glm::mat4(1.0f);
 		node->index                 = nodeIndex;
-		node->skin                  = inputNode.skin;
 
 		// Get the local node matrix
 		// It's either made up from translation, rotation, scale or a 4x4 matrix
@@ -421,14 +398,6 @@ public:
 		if (inputNode.matrix.size() == 16) {
 			node->matrix = glm::make_mat4x4(inputNode.matrix.data());
 		};
-
-		VK_CHECK_RESULT(vulkanDevice->createBuffer(
-			VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
-			VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
-			&node->ssbo,
-			sizeof(glm::mat4),
-			&node->matrixHierarchy));
-		VK_CHECK_RESULT(node->ssbo.map());
 
 		// Load node's children
 		if (inputNode.children.size() > 0) {
@@ -659,9 +628,6 @@ public:
 			// Pass the final matrix to the vertex shader using push constants
 			// assert(node->matrixHierarchy == node->matrix);
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
-			// Bind SSBO with skin data for this node to set 1
-			// vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 3, 1, &skins[node->skin].descriptorSet, 0, nullptr);
-			// vkCmdBindDescriptorSets(commandBuffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelineLayout, 3, 1, &node->descriptorSet, 0, nullptr);
 			for (VulkanglTFModel::Primitive& primitive : node->mesh.primitives) {
 				if (primitive.indexCount > 0) {
 					// Get the texture index for this primitive
@@ -723,8 +689,6 @@ public:
 		VkDescriptorSetLayout matrices;
 		VkDescriptorSetLayout textures;
 		VkDescriptorSetLayout normals;
-		VkDescriptorSetLayout jointMatrices;
-		VkDescriptorSetLayout nodeMatrices;
 	} descriptorSetLayouts;
 
 	VulkanExample() : VulkanExampleBase(ENABLE_VALIDATION)
@@ -735,6 +699,7 @@ public:
 		camera.setPosition(glm::vec3(0.0f, -0.1f, -1.0f));
 		camera.setRotation(glm::vec3(0.0f, 45.0f, 0.0f));
 		camera.setPerspective(60.0f, (float)width / (float)height, 0.1f, 256.0f);
+		// enabledInstanceExtensions.push_back(VK_NV_GLSL_SHADER_EXTENSION_NAME);
 	}
 
 	~VulkanExample()
@@ -749,8 +714,6 @@ public:
 		vkDestroyPipelineLayout(device, pipelineLayout, nullptr);
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.matrices, nullptr);
 		vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.textures, nullptr);
-		vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.jointMatrices, nullptr);
-		vkDestroyDescriptorSetLayout(device, descriptorSetLayouts.nodeMatrices, nullptr);
 
 		shaderData.buffer.destroy();
 	}
@@ -928,13 +891,9 @@ public:
 			// One combined image sampler per model image/texture
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(glTFModel.images.size())),
 			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, static_cast<uint32_t>(glTFModel.images.size())),
-			// One ssbo per skin
-			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(glTFModel.skins.size())),
-			// One ssbo per node
-			vks::initializers::descriptorPoolSize(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, static_cast<uint32_t>(glTFModel.nodes.size())),
 		};
 		// One set for matrices and one per model image/texture
-		const uint32_t maxSetCount = static_cast<uint32_t>(glTFModel.images.size() * 2) + 1 + static_cast<uint32_t>(glTFModel.skins.size()) + static_cast<uint32_t>(glTFModel.nodes.size());
+		const uint32_t maxSetCount = static_cast<uint32_t>(glTFModel.images.size() * 2) + 1;
 		VkDescriptorPoolCreateInfo descriptorPoolInfo = vks::initializers::descriptorPoolCreateInfo(poolSizes, maxSetCount);
 		VK_CHECK_RESULT(vkCreateDescriptorPool(device, &descriptorPoolInfo, nullptr, &descriptorPool));
 
@@ -950,22 +909,13 @@ public:
 		setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, VK_SHADER_STAGE_FRAGMENT_BIT, 0);
 		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.normals));
 
-		// Descriptor set layout for passing skin joint matrices
-		setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
-		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.jointMatrices));
-
-		setLayoutBinding = vks::initializers::descriptorSetLayoutBinding(VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, VK_SHADER_STAGE_VERTEX_BIT, 0);
-		VK_CHECK_RESULT(vkCreateDescriptorSetLayout(device, &descriptorSetLayoutCI, nullptr, &descriptorSetLayouts.nodeMatrices));
-
 		// Pipeline layout using both descriptor sets (set 0 = matrices, set 1 = material)
-		std::array<VkDescriptorSetLayout, 5> setLayouts = {
+		std::array<VkDescriptorSetLayout, 3> setLayouts = {
 			descriptorSetLayouts.matrices, 
 			descriptorSetLayouts.textures,
 			descriptorSetLayouts.normals,
-			descriptorSetLayouts.jointMatrices,
-			descriptorSetLayouts.nodeMatrices,
 		};
-		VkPipelineLayoutCreateInfo pipelineLayoutCI= vks::initializers::pipelineLayoutCreateInfo(setLayouts.data(), static_cast<uint32_t>(setLayouts.size()));
+		VkPipelineLayoutCreateInfo pipelineLayoutCI = vks::initializers::pipelineLayoutCreateInfo(setLayouts.data(), static_cast<uint32_t>(setLayouts.size()));
 
 		// We will use push constants to push the local matrices of a primitive to the vertex shader
 		VkPushConstantRange pushConstantRange = vks::initializers::pushConstantRange(VK_SHADER_STAGE_VERTEX_BIT, sizeof(glm::mat4), 0);
@@ -990,22 +940,6 @@ public:
 			const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.normals, 1);
 			VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &image.descriptorSet));
 			VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(image.descriptorSet, VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, 0, &image.texture.descriptor);
-			vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
-		}
-		// Descriptor set for glTF model skin joint matrices
-		for (auto& skin : glTFModel.skins)
-		{
-			const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.jointMatrices, 1);
-			VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &skin.descriptorSet));
-			VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(skin.descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, &skin.ssbo.descriptor);
-			vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
-		}
-		for (auto& node : glTFModel.nodes)
-		{
-			const VkDescriptorSetAllocateInfo allocInfo = vks::initializers::descriptorSetAllocateInfo(descriptorPool, &descriptorSetLayouts.nodeMatrices, 1);
-			VK_CHECK_RESULT(vkAllocateDescriptorSets(device, &allocInfo, &node->descriptorSet));
-			VK_CHECK_RESULT(node->ssbo.invalidate());
-			VkWriteDescriptorSet writeDescriptorSet = vks::initializers::writeDescriptorSet(node->descriptorSet, VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, 0, &node->ssbo.descriptor);
 			vkUpdateDescriptorSets(device, 1, &writeDescriptorSet, 0, nullptr);
 		}
 	}
@@ -1041,8 +975,8 @@ public:
 		vertexInputStateCI.pVertexAttributeDescriptions = vertexInputAttributes.data();
 
 		const std::array<VkPipelineShaderStageCreateInfo, 2> shaderStages = {
-			loadShader(getHomeworkShadersPath() + "homework1/mesh.vert", VK_SHADER_STAGE_VERTEX_BIT),
-			loadShader(getHomeworkShadersPath() + "homework1/mesh.frag", VK_SHADER_STAGE_FRAGMENT_BIT)
+			loadShader(getHomeworkShadersPath() + "homework1/mesh.vert.spv", VK_SHADER_STAGE_VERTEX_BIT),
+			loadShader(getHomeworkShadersPath() + "homework1/mesh.frag.spv", VK_SHADER_STAGE_FRAGMENT_BIT)
 		};
 
 		VkGraphicsPipelineCreateInfo pipelineCI = vks::initializers::pipelineCreateInfo(pipelineLayout, renderPass, 0);
