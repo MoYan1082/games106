@@ -20,7 +20,6 @@ layout(push_constant) uniform PushConsts {
 	mat4 model;
 } primitive;
 
-
 layout (location = 0) out vec3 outNormal;
 layout (location = 1) out vec3 outColor;
 layout (location = 2) out vec2 outUV;

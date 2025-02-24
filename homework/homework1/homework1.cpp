@@ -382,14 +382,18 @@ public:
 		// Get the local node matrix
 		// It's either made up from translation, rotation, scale or a 4x4 matrix
 		if (inputNode.translation.size() == 3) {
-			node->matrix = glm::translate(node->matrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
+			// node->matrix = glm::translate(node->matrix, glm::vec3(glm::make_vec3(inputNode.translation.data())));
+			node->translation = glm::vec3(glm::make_vec3(inputNode.translation.data()));
 		}
 		if (inputNode.rotation.size() == 4) {
 			glm::quat q = glm::make_quat(inputNode.rotation.data());
-			node->matrix *= glm::mat4(q);
+			// node->matrix *= glm::mat4(q);
+			node->rotation = q;
 		}
 		if (inputNode.scale.size() == 3) {
-			node->matrix = glm::scale(node->matrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
+
+			// node->matrix = glm::scale(node->matrix, glm::vec3(glm::make_vec3(inputNode.scale.data())));
+			node->scale = glm::vec3(glm::make_vec3(inputNode.scale.data()));
 		}
 		if (inputNode.matrix.size() == 16) {
 			node->matrix = glm::make_mat4x4(inputNode.matrix.data());
@@ -546,17 +550,6 @@ public:
 		return nodeMatrix;
 	}
 
-	// POI: Update the joint matrices from the current animation frame and pass them to the GPU
-	void VulkanglTFModel::updateJoints(VulkanglTFModel::Node *node, glm::mat4 matrixHierarchy)
-	{
-		node->matrixHierarchy = matrixHierarchy * node->matrix;
-
-		for (auto &child : node->children)
-		{
-			updateJoints(child, node->matrixHierarchy);
-		}
-	}
-
 	// POI: Update the current animation
 	void VulkanglTFModel::updateAnimation(float deltaTime)
 	{
@@ -614,10 +607,10 @@ public:
 				}
 			}
 		}
-		for (auto &node : nodes)
-		{
-			updateJoints(node, glm::mat4(1.0f));
-		}
+		// for (auto &node : nodes)
+		// {
+		// 	updateJoints(node, glm::mat4(1.0f));
+		// }
 	}
 
 
@@ -631,15 +624,10 @@ public:
 		if (node->mesh.primitives.size() > 0) {
 			// Pass the node's matrix via push constants
 			// Traverse the node hierarchy to the top-most parent to get the final matrix of the current node
-			glm::mat4 nodeMatrix = node->matrix;
-			VulkanglTFModel::Node* currentParent = node->parent;
-			while (currentParent) {
-				nodeMatrix = currentParent->matrix * nodeMatrix;
-				currentParent = currentParent->parent;
-			}
+			glm::mat4 nodeMatrix = getNodeMatrix(node);
 			// Pass the final matrix to the vertex shader using push constants
+			// assert(node->matrixHierarchy == node->matrix);
 			vkCmdPushConstants(commandBuffer, pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(glm::mat4), &nodeMatrix);
-
 			for (VulkanglTFModel::Primitive& primitive : node->mesh.primitives) {
 				if (primitive.indexCount > 0) {
 					// Get the texture index for this primitive
@@ -808,11 +796,6 @@ public:
 				glTFModel.loadNode(node, glTFInput, nullptr, scene.nodes[i], indexBuffer, vertexBuffer);
 			}
 			glTFModel.loadAnimations(glTFInput);
-			// Calculate initial pose
-			for (auto node : glTFModel.nodes)
-			{
-				glTFModel.updateJoints(node, glm::mat4(1.0f));
-			}
 		}
 		else {
 			vks::tools::exitFatal("Could not open the glTF file.\n\nThe file is part of the additional asset pack.\n\nRun \"download_assets.py\" in the repository root to download the latest version.", -1);
@@ -1063,6 +1046,7 @@ public:
 		if (!paused)
 		{
 			glTFModel.updateAnimation(frameTimer);
+			buildCommandBuffers();
 		}
 	}
 
